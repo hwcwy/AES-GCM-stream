@@ -78,7 +78,7 @@ graph LR;
 
 ## Afterword
 
-I must admit that this is quite complex, but it is necessary to ensure
+I must admit that this is quite complex🥲, but it is necessary to ensure
 compatibility and customizability of the library.
 
 The purpose of this library is to encrypt data in a tunnel (🧱). It requires a
