@@ -1,83 +1,91 @@
-[中文](./README.md) | [English](./README_en.md)
+[English](./README.md) | [中文](./README_CN.md)
 
-# 引言
+# Introduction
 
-这是一个流式 AES-GCM 加解密库，使用 `Web Stream API` 与 `Web Crypto API`
-，零依赖，并具有高度的可自定义性，理论上支持浏览器，Deno 和 Node（未测试）。
+_This document was translated by artificial intelligence._
 
-## 基本用法
+This is a streaming AES-GCM encryption and decryption library that uses
+`Web Stream API` and `Web Crypto API`, has zero dependencies, and is highly
+customizable. It is theoretically compatible with browsers, Deno, and Node
+(untested).
+
+## Basic Usage
 
 ```typescript
-import { AesGcmDecryptionStream , AesGcmEncryptionStream , createKey } from"./mod.ts";
-const key = await createKey(new Uint8Array([ .. ]));
-const 加密流 = new AesGcmEncryptionStream({ key });
-const 解密流 = new AesGcmDecryptionStream({ key });
-// ...Stream 操作
+import { AesGcmDecryptionStream, AesGcmEncryptionStream, createKey } from "./mod.ts";
+const key = await createKey(new Uint8Array([..]));
+const encryptionStream = new AesGcmEncryptionStream({ key });
+const decryptionStream = new AesGcmDecryptionStream({ key });
+// ...Stream operations
 ```
 
-在以上代码中
+In the code above:
 
-- `Uint8Array`字节长度为16指AES-128，24指AES-192， 32指AES-256。
-- 我们只用到了`key`这个参数，其余参数有默认值，多数情况下无需关心。
-- 以上代码适用于加密与解密都使用本库的情况，其余情况请看进阶用法。
+- The byte length of the `Uint8Array` determines whether AES-128, AES-192, or
+  AES-256 is being used.
+- We only use the `key` parameter here, as most other parameters have default
+  values that should suffice in most cases.
+- This code is suitable for cases where both encryption and decryption use this
+  library. For other cases, please refer to the advanced usage section.
 
-## 进阶用法
+## Advanced Usage
 
-在使用进阶用法之前，你需要了解一些信息
+Before using the advanced features, you need to understand some information.
 
-默认情况下，本库封装的加密块表现为如下格式：
+By default, the encryption block encapsulated by this library has the following
+format:
 
 ```mermaid
 graph LR;
-   A(加密块) -->|指示当前块的字节长度| B(Block Size)
-   A -->|随机化参数| C(IV)
-   A -->|包含完整性校验值| D(Encrypted Chunk)
-   A -->|附加数据|E(Additional Data)
+   A(Encryption Block) -->|Indicates the byte length of the current block| B(Block Size)
+   A -->|Randomization parameter| C(IV)
+   A -->|Contains the integrity check value| D(Encrypted Chunk)
+   A -->|Additional Data|E(Additional Data)
 ```
 
-| 元素            | 参数                       | 信息                                                                                                   |
-| --------------- | -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Block Size      | 可选。固定4字节            | 指示当前块的字节长度，包含自身长度，用于保证接收方数据完整性                                           |
-| IV              | 可选。默认12字节，长度可变 | 未指定时，每个块随机一个并且必须附加；指定时不附加，且在一个加密会话中所有块会使用同一个IV，降低安全性 |
-| Encrypted Data  | 末尾包含完整性校验值       | 解密时Web Crypto API会自动进行完整性校验                                                               |
-| Additional Data | 可选。但必须定长           | 解密时需要它的长度以便正确分离数据                                                                     |
-
-注：可选指可不附加在加密块中
+| Element         | Parameter                                     | Information                                                                                                                                                                                       |
+| --------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Block Size      | Optional. Fixed 4 bytes                       | Indicates the byte length of the current block, including its own length, to ensure data integrity.                                                                                               |
+| IV              | Optional. Default 12 bytes, variable length   | If unspecified, a random IV is generated for each block and must be attached. If specified, it is not attached, and all blocks in the encryption session will use the same IV, reducing security. |
+| Encrypted Data  | Contains the integrity check value at the end | The Web Crypto API automatically performs integrity checks during decryption.                                                                                                                     |
+| Additional Data | Optional. Must be of fixed length             | Its length is required during decryption to correctly separate the data.                                                                                                                          |
 
 ---
 
-### `new AesGcmEncryptionStream({ .. })`支持的参数：
+### Parameters supported by `new AesGcmEncryptionStream({ .. })`:
 
-| name            | 作用                         | 信息                                                                                                                                                                      |
-| --------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| key             | 加密密钥                     | 决定AES-128 or 192 or 256                                                                                                                                                 |
-| ivPrefix        | 是否将iv附加到加密块         | 默认为true。指定为false后表示不将iv附加到加密块，此时必须指定一个固定iv作为本次加密会话中所有加密块的iv                                                                   |
-| iv              | 随机化向量                   | 一般不指定，随机为每个块设置一个iv且必须附加。指定时作为本次加密会话中所有加密块的iv，可以不附加                                                                          |
-| ivByteLength    | iv的字节长度                 | 默认为12，可指定为16，更安全。指定iv则使用导入iv的字节长度，本参数被忽略                                                                                                  |
-| additionalData  | 附加数据                     | 默认为空`Uint8Array`。指定时必须定长，接收时需要导入它的长度，会被附加到每个加密块的末尾                                                                                    |
-| tagLength       | 完整性校验标签的比特长度     | 默认为128，可指定值依具体平台而定，一般小于128                                                                                                                            |
-| blockSizePrefix | 是否将块大小数据附加到加密块 | 4字节长度，默认为true，用于保证接收方数据的完整性。指定为false后，请保证一次写入到加密流的块大小与一次写入到解密流的块大小一致且固定                                      |
-| concatData      | 构造加密块的方式             | 一个函数，有`iv`,`encryptedChunk`,`additionalData`三个参数，默认拼接顺序为`iv-encryptedChunk-additionalData`，ivPrefix为false时不拼接iv。需要自定义拼接顺序请使用库中的`concat`函数 |
+| Name            | Purpose                                                   | Information                                                                                                                                                                                                                                                                                           |
+| --------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| key             | Encryption key                                            | Determines whether AES-128 or 192 or 256 is used                                                                                                                                                                                                                                                      |
+| ivPrefix        | Whether to attach iv to the encryption block              | Default is true. When set to false, it means that the iv is not attached to the encryption block, and a fixed iv must be specified as the iv for all encryption blocks in this encryption session.                                                                                                    |
+| iv              | Randomization vector                                      | Generally not specified. When specified, it is used as the iv for all encryption blocks in this encryption session and does not need to be attached.                                                                                                                                                  |
+| ivByteLength    | Length of the iv in bytes                                 | Default is 12, but can be specified as 16 for increased security. If the iv is specified, this parameter is ignored.                                                                                                                                                                                  |
+| additionalData  | Additional data                                           | Default is an empty `Uint8Array`. When specified, it must be of fixed length, and its length is attached to the end of each encryption block.                                                                                                                                                         |
+| tagLength       | Bit length of the integrity check tag                     | Default is 128, but value may depend on the specific platform and is generally less than 128.                                                                                                                                                                                                         |
+| blockSizePrefix | Whether to attach block size data to the encryption block | 4 bytes in length by default, and true by default to ensure data integrity. When set to false, the size of the block written to the encryption stream must be consistent and fixed with that written to the decryption stream.                                                                        |
+| concatData      | How to construct the encryption block                     | A function with three parameters: `iv`, `encryptedChunk`, and `additionalData`. The default concatenation order is `iv-encryptedChunk-additionalData`, and when `ivPrefix` is false, iv is not concatenated. To customize the concatenation order, use the `concat` function provided by the library. |
 
-### `new AesGcmDecryptionStream({ .. })`支持的参数：
+### Parameters supported by `new AesGcmDecryptionStream({ .. })`:
 
-| name                     | 作用                             | 信息                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| key                      | 解密密钥                         | 必须与加密密钥相同                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| useIvPrefix              | 是否使用附加到加密块上的iv       | 默认为true。指定为false时必须指定iv，此时本解密会话上的所有加密块将会使用此iv                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| iv                       | 随机化向量                       | 一般不指定，使用加密块附加的iv。指定时本解密会话上的所有加密块将会使用此iv                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ivByteLength             | iv的字节长度                     | 默认为12，用于从加密流中分离iv。指定iv且useIvProfix为true(默认)时为指定iv的长度，指定iv但useIvProfix为false时为0;不指定iv时，对该参数的指定生效                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| tagLength                | 完整性校验标签的比特长度         | 默认为128。指定时必须与对应加密会话一致，一般小于128                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| additionalDataByteLength | 附加数据的字节长度               | 默认为0。指定时必须与加密会话的参数对应，用于从解密块中分离附加数据                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| useBlockSizePrefix       | 是否使用附加到加密块的块大小数据 | 默认为true，用于保证接收方数据的完整性。指定为false后，请保证一次写入到加密流的块大小与一次写入到解密流的块大小一致且固定                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| separateData             | 分离加密块的方式                 | 一个函数，`receivedData`，`ivByteLength`，`additionalDataByteLength`三个参数，默认分离顺序为`blockSize-iv-encryptedChunk-additionalData`，useBlockSizePrefix为false时表示块中没有块大小前缀，此时不分离blockSize。需要自定义分离顺序时，用库中的`uint8ArrayToDecimal(receivedData.subarray(0, 4))`取出块大小信息；指定iv时可用`this.iv`取出iv，未指定则用`Uint8Array.subarray`方法从加密块中取出，其余数据以此类推，最后像这样返回：`return { blockSize, iv, encryptedChunk, additionalData };`。注意使用函数提供的参数以及取出的顺序对应加密流中构造加密块的顺序，推荐用`Uint8Array.subarray`方法 |
+| Name            | Purpose                                                  | Information                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| key             | Decryption key                                           | Determines whether AES-128 or 192 or 256 is used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ivPrefix        | Whether the iv is attached to the encryption block       | Default is true.When set to false, it means that the iv is not attached to the encryption block,and a fixed iv must be specified as the iv for all encryption blocks in this encryption session.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| additionalData  | Additional data                                          | Default is an empty `Uint8Array`. When specified, it must be of fixed length, and its length is attached to the end of each encryption block.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| tagLength       | Bit length of theintegrity check tag                     | Default is 128, but value may depend on the specificplatform and is generally less than 128.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| blockSizePrefix | Whether to attachblock size data to the encryption block | Default is true to ensure data integrity. When set to false, the size of the block written to the decryption stream must be consistent and fixed with that written to the encryption stream.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| separateData    | How to separate the encryption block                     | separateData is a function used to separate encrypted blocks. It takes three parameters: `receivedData`, `ivByteLength`, and `additionalDataByteLength`. By default, the separation order is `blockSize-iv-encryptedChunk-additionalData`. When useBlockSizePrefix is set to false, it means there is no block size prefix in the blocks, and blockSize will not be separated. To customize the separation order, use the uint8ArrayToDecimal function in the library to extract the block size information from `receivedData.subarray(0, 4)`. When specifying the IV, you can retrieve it using `this.iv`. If not specified, use the `Uint8Array.subarray` method to retrieve the data from the encryption block. The same applies to the other data. Finally, return as follows: `return { blockSize, iv, encryptedChunk, additionalData }` . Pay attention to using the parameters provided by the function and ensuring that the order in which they are extracted corresponds to the order in which encryption blocks are constructed in the encryption stream. It is recommended to use the `Uint8Array.subarray` method. |
 
-我不得不承认这些确实很复杂🥲，但这样才能保证这个库的兼容性及可自定义性。
+I must admit that this is quite complex🥲, but it is necessary to ensure
+compatibility and customizability of the library.
 
 ---
 
-## 后记
+## Afterword
 
-我写这个库的目的是加密一个tunnel中的数据(🧱)，需要一个支持可变块大小的AES-GCM流式加解密库，我当时找遍了全网，没有一个能够实现我的需求，于是特地写了这个库。
+The purpose of this library is to encrypt data in a tunnel (🧱). It requires a
+streamable AES-GCM encryption library with variable block sizes. When I searched
+the entire web, I couldn't find any library that met my requirements, so I wrote
+this library.
 
-欢迎各位使用本库。
+Feel free to use this library.
